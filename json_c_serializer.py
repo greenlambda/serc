@@ -3,7 +3,7 @@ import json
 
 def parseStruct(node):
 	print 'struct {0} {{'.format(node['name'])
-	for elem in node['contents']:
+	for elem in node['contents']:		w	IHQtOI
 		parseNode(elem)
 	print '}__attribute__((packed));'
 	if 'typedef_name' in node:
