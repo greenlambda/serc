@@ -1,0 +1,13 @@
+{
+    "name": "radar_calibration",
+    "typedef_name": "DradisRadarCalibrationData",
+    "type": "struct",
+    "contents": [
+        { "name": "txCount", "type": "uint8_t", "comment": "Number of transmitter units" },
+        { "name": "rxCount", "type": "uint8_t", "comment": "Number of receiver units" },
+
+        { "name": "rxSignalDuration", "type": "double_list", "comment": "The duration the received signals in seconds"}
+    ]
+}
+
+
