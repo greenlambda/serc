@@ -1,13 +1,25 @@
 {
-    "name": "radar_calibration",
-    "typedef_name": "DradisRadarCalibrationData",
-    "type": "struct",
-    "contents": [
-        { "name": "txCount", "type": "uint8_t", "comment": "Number of transmitter units" },
-        { "name": "rxCount", "type": "uint8_t", "comment": "Number of receiver units" },
+    "struct_list": [
+        {
+            "name": "radar_calibration",
+            "typedef_name": "DradisRadarCalibrationData",
+            "type": "struct",
+            "contents": [
+                { "name": "txCount", "type": "uint8_t", "short_comment": "Number of transmitter units" },
+                { "name": "rxCount", "type": "uint8_t", "short_comment": "Number of receiver units" },
 
-        { "name": "rxSignalDuration", "type": "double_list", "comment": "The duration the received signals in seconds"}
+                { "name": "rxSignalDuration", "type": "double_list", "short_comment": "The duration the received signals in seconds"},
+                { "name": "rx", "type": "struct(point)", "short_comment": "The location of the receiver" }
+            ]
+        },
+        { 
+            "name": "nested_test",
+            "type": "struct",
+            "contents": [
+                { "name": "x", "type": "int"},
+                { "name": "y", "type": "int"},
+                { "name": "z", "type": "int"}
+            ]
+        }
     ]
 }
-
-
