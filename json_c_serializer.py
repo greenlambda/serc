@@ -14,16 +14,20 @@ class SerCTypeArgsError(SerCError):
     """Could not understand one of the arguments to the type"""
     pass
 
-class SerCType:
-    __metaclass__ = ABCMeta
+class SerCType(metaclass=ABCMeta):
     """
-    The base class for all Ser C types.
+    The base class for all SerC types.
     """
     @abstractmethod
     def getCType(self): pass
 
-    @abstractmethod
-    def parse(self, node): pass
+    def parse(self, node):
+        if 'long_comment' in node:
+            print('    /*\n     * {0}\n     */'.format(node['long_comment']))
+        line = '    {0} {1};'.format(self.getCType(), node['name'])
+        if 'inline_comment' in node:
+            line += ' /* {0} */'.format(node['inline_comment'])
+        print(line)
 
 class SerCTypeInt(SerCType):
     """
@@ -68,50 +72,51 @@ class SerCTypeInt(SerCType):
                 prefix = 'u'
             return '{0}int{1}_t'.format(prefix, self._width)
 
-    def parse(self, node):
-        print '    {0} {1}; /* {2} */'.format(self.getCType(), node['name'], node['short_comment'])
-
 class SerCTypeFloat(SerCType):
     """
     This class defines all the C floating point numbers like float or double
     """
-    def __init__(self, arg):
-        super(SerCTypeFloat, self).__init__()
-        self.arg = arg
-        
+    VALID_WIDTHS = ['float', 'double']
 
+    def __init__(self, width='float'):
+        super(SerCTypeFloat, self).__init__()
+        if width not in self.VALID_WIDTHS:
+            raise SerCTypeArgsError('Floating point numbers must be one of the widths: ' + self.VALID_WIDTHS)
+        self._width = width
+
+    def getCType(self):
+        return self._width
+
+    
 class SerCTypeMallocList(SerCType):
     """
     This class defines all C lists where the lists are malloced.
     """
-    def __init__(self, elementTypeNode=u'int'):
+    def __init__(self, elementTypeNode='int', length='0'):
         super(SerCTypeMallocList, self).__init__()
         self._elementType = parseMemberType(elementTypeNode)
+        self._length = length;
 
     def getCType(self):
         return '{0}*'.format(self._elementType.getCType())
 
-    def parse(self, node):
-        print '    {0} {1}; /* {2} */'.format(self.getCType(), node['name'], node['short_comment'])
-
-class SerCTypeStructure(SerCType):
+class SerCTypeStructureStub(SerCType):
     """
-    The basic class for a C strucutre.
+    The basic class for a C strucutre stub, that is the reference to
+    a structure that one might find inside another structure.
     """
     def __init__(self, structTypeName):
-        super(SerCTypeStructure, self).__init__()
+        super(SerCTypeStructureStub, self).__init__()
         self._structTypeName = structTypeName
 
     def getCType(self):
         return 'struct {0}'.format(self._structTypeName)
 
-    def parse(self, node):
-        print '    {0} {1}; /* {2} */'.format(self.getCType(), node['name'], node['short_comment'])
-
 TYPE_TABLE = {
     'int': SerCTypeInt,
     'malloc_list': SerCTypeMallocList,
-    'struct': SerCTypeStructure
+    'struct': SerCTypeStructureStub,
+    'float': SerCTypeFloat
 }
 
 def parseMemberType(typeNode):
@@ -120,7 +125,7 @@ def parseMemberType(typeNode):
 
     # The type can either be a simple string using the defaults or a
     # full type dictionary
-    if isinstance(typeNode, basestring):
+    if isinstance(typeNode, str):
         # Simple type
         if typeNode not in TYPE_TABLE:
             raise SerCParseError('Unknown member type: ' + typeNode)
@@ -175,12 +180,12 @@ class JsonToCSerializer(object):
 
         # Parse each structure in turn
         for struct in self._parsedJson['struct_list']:
-            print 'struct {0};'.format(struct['name'])
-        print
+            print(('struct {0};'.format(struct['type_name'])))
+        print()
         for struct in self._parsedJson['struct_list']:
             self.parseStruct(struct)
-            print
-        print
+            print()
+        print()
 
     def parseMember(self, node):
         """ Parse a given member variable of a struct in parsed JSON """
@@ -192,18 +197,14 @@ class JsonToCSerializer(object):
         memberType.parse(node)
 
     def parseStruct(self, node):
-        print 'struct {0} {{'.format(node['name'])
+        print(('struct {0} {{'.format(node['type_name'])))
         for elem in node['contents']:
             self.parseMember(elem)
-        print '}__attribute__((packed));'
+        print('}__attribute__((packed));')
         if 'typedef_name' in node:
-            print 'typedef struct {0} {1};'.format(node['name'], node['typedef_name'])
+            print(('typedef struct {0} {1};'.format(node['type_name'], node['typedef_name'])))
 
 
 serc = JsonToCSerializer(open('test.json'))
 serc.parse()
-
-
-
-
 

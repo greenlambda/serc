@@ -1,24 +1,30 @@
 {
     "struct_list": [
         {
-            "name": "radar_calibration",
+            "type_name": "radar_calibration",
             "typedef_name": "DradisRadarCalibrationData",
-            "type": "struct",
             "contents": [
-                { "name": "txCount", "type": {"type_name": "int", "args": ["unsigned", 8]}, "short_comment": "Number of transmitter units" },
-                { "name": "rxCount", "type": {"type_name": "int", "args": ["unsigned", 8]}, "short_comment": "Number of receiver units" },
+                { "name": "txCount", "type": {"type_name": "int", "args": ["unsigned", 8]}, "long_comment": "This is a long comment. Long comment is long. \n This is a new line.","inline_comment": "Number of transmitter units" },
+                { "name": "rxCount", "type": {"type_name": "int", "args": ["unsigned", 8]}, "inline_comment": "Number of receiver units" },
 
-                { "name": "rxSignalDuration", "type": {"type_name": "malloc_list", "args": [{"type_name": "float", "args": ["double"]}]}, "short_comment": "The duration the received signals in seconds"},
-                { "name": "rx", "type": {"type_name": "struct", "args": ["point"]}, "short_comment": "The location of the receiver" }
+                { 
+                    "name": "rxSignalDuration", "type":
+                    {
+                        "type_name": "malloc_list",
+                        "args": [{"type_name": "float", "args": ["double"]}, "this->rxCount"]
+                    },
+                    "inline_comment": "The duration the received signals in seconds"
+                },
+
+                { "name": "rx", "type": {"type_name": "struct", "args": ["point"]}, "inline_comment": "The location of the receiver" }
             ]
         },
         { 
-            "name": "point",
-            "type": "struct",
+            "type_name": "point",
             "contents": [
-                { "name": "x", "type": "int", "short_comment": "Number of receiver units"},
-                { "name": "y", "type": "int", "short_comment": "Number of receiver units"},
-                { "name": "z", "type": "int", "short_comment": "Number of receiver units"}
+                { "name": "x", "type": "int", "inline_comment": "Number of receiver units"},
+                { "name": "y", "type": "int", "inline_comment": "Number of receiver units"},
+                { "name": "z", "type": "int", "inline_comment": "Number of receiver units"}
             ]
         }
     ]
