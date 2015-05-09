@@ -18,15 +18,73 @@ class SerCType(metaclass=ABCMeta):
     """
     The base class for all SerC types.
     """
+    def parseTypeNode(typeNode):
+        """Takes in a SerC type node and parses it into a SerC type class"""
+        memberType = None
+
+        # The type can either be a simple string using the defaults or a
+        # full type dictionary
+        if isinstance(typeNode, str):
+            # Simple type
+            if typeNode not in TYPE_TABLE:
+                raise SerCParseError('Unknown member type: ' + typeNode)
+            memberType = TYPE_TABLE[typeNode]()
+        elif isinstance(typeNode, dict):
+            # Full type dictionary
+            if 'type_name' not in typeNode:
+                raise SerCParseError('Types must have a type name')
+            if typeNode['type_name'] not in TYPE_TABLE:
+                raise SerCParseError('Unknown member type: ' + typeNode['type_name'])
+            memberType = None
+            if 'args' not in typeNode:
+                # No args given, use the defaults
+                memberType = TYPE_TABLE[typeNode['type_name']]()
+            elif isinstance(typeNode['args'], list):
+                # There is an args list
+                memberType = TYPE_TABLE[typeNode['type_name']](*typeNode['args'])
+            elif isinstance(typeNode['args'], dict):
+                # There is a keyword arg dictionary
+                memberType = TYPE_TABLE[typeNode['type_name']](**typeNode['args'])
+            else:
+                # Error parsing the args list
+                raise SerCParseError('Unknown type args. Args must be a list or a dictionary')
+        else:
+            # Types must be strings or type dictionaries
+            raise SerCParseError('Types must be strings or type dictionaries')
+
+        # Return the SerCType speced in typeNode
+        return memberType
+
     @abstractmethod
     def getCType(self): pass
 
+    @abstractmethod
+    def formatConstructor(self): pass
+
     def parse(self, node):
+        self.longComment = None
+        self.inlineComment = None
         if 'long_comment' in node:
-            print('    /*\n     * {0}\n     */'.format(node['long_comment']))
-        line = '    {0} {1};'.format(self.getCType(), node['name'])
+            if not isinstance(node['long_comment'], str):
+                raise SerCParseError('long_comments must be strings')
+            self.longComment = node['long_comment']
+
+        if 'name' not in node or not isinstance(node['name'], str):
+            raise SerCParseError('All members must have a name')
+
+        self.name = node['name']
+
         if 'inline_comment' in node:
-            line += ' /* {0} */'.format(node['inline_comment'])
+            if not isinstance(node['inline_comment'], str):
+                raise SerCParseError('inline_comment must be strings')
+            self.inlineComment = node['inline_comment']
+
+    def formatDeclaration(self):
+        if self.longComment:
+           print('    /*\n     * {0}\n     */'.format(self.longComment))
+        line = '    {0} {1};'.format(self.getCType(), self.name)
+        if self.inlineComment:
+            line += ' /* {0} */'.format(self.inlineComment)
         print(line)
 
 class SerCTypeInt(SerCType):
@@ -72,6 +130,9 @@ class SerCTypeInt(SerCType):
                 prefix = 'u'
             return '{0}int{1}_t'.format(prefix, self._width)
 
+    def formatConstructor(self):
+        print('    this->{0} = 0;'.format(self.name))
+
 class SerCTypeFloat(SerCType):
     """
     This class defines all the C floating point numbers like float or double
@@ -87,18 +148,32 @@ class SerCTypeFloat(SerCType):
     def getCType(self):
         return self._width
 
+    def formatConstructor(self):
+        print('    this->{0} = 0f;'.format(self.name))
+
     
 class SerCTypeMallocList(SerCType):
     """
     This class defines all C lists where the lists are malloced.
     """
     def __init__(self, elementTypeNode='int', length='0'):
-        super(SerCTypeMallocList, self).__init__()
-        self._elementType = parseMemberType(elementTypeNode)
+        super().__init__()
+        self._elementType = SerCType.parseTypeNode(elementTypeNode)
         self._length = length;
 
     def getCType(self):
         return '{0}*'.format(self._elementType.getCType())
+
+    def parse(self, node):
+        super().parse(node)
+        if 'list_length' not in node:
+            raise SerCParseError('Malloc lists must have a length')
+
+        self.listLength = node['list_length']
+
+    def formatConstructor(self):
+        print('    this->{0} = malloc(sizeof({1}) * {2});'.format(self.name, self._elementType.getCType(), self.listLength))
+
 
 class SerCTypeStructureStub(SerCType):
     """
@@ -112,6 +187,9 @@ class SerCTypeStructureStub(SerCType):
     def getCType(self):
         return 'struct {0}'.format(self._structTypeName)
 
+    def formatConstructor(self):
+        print('    {1}_create(&(this->{0}));'.format(self.name, self._structTypeName))
+
 TYPE_TABLE = {
     'int': SerCTypeInt,
     'malloc_list': SerCTypeMallocList,
@@ -119,42 +197,66 @@ TYPE_TABLE = {
     'float': SerCTypeFloat
 }
 
-def parseMemberType(typeNode):
-    """Takes in a SerC type node and parses it into a SerC type class"""
-    memberType = None
+class SerCStructure(object):
+    """This holds all the data about a structure once it has been parsed"""
+    def __init__(self, node):
+        """Parse a JSON node into a new object of the SerCStructure class"""
+        super(SerCStructure, self).__init__()
 
-    # The type can either be a simple string using the defaults or a
-    # full type dictionary
-    if isinstance(typeNode, str):
-        # Simple type
-        if typeNode not in TYPE_TABLE:
-            raise SerCParseError('Unknown member type: ' + typeNode)
-        memberType = TYPE_TABLE[typeNode]()
-    elif isinstance(typeNode, dict):
-        # Full type dictionary
-        if 'type_name' not in typeNode:
-            raise SerCParseError('Types must have a type name')
-        if typeNode['type_name'] not in TYPE_TABLE:
-            raise SerCParseError('Unknown member type: ' + typeNode['type_name'])
-        memberType = None
-        if 'args' not in typeNode:
-            # No args given, use the defaults
-            memberType = TYPE_TABLE[typeNode['type_name']]()
-        elif isinstance(typeNode['args'], list):
-            # There is an args list
-            memberType = TYPE_TABLE[typeNode['type_name']](*typeNode['args'])
-        elif isinstance(typeNode['args'], dict):
-            # There is a keyword arg dictionary
-            memberType = TYPE_TABLE[typeNode['type_name']](**typeNode['args'])
-        else:
-            # Error parsing the args list
-            raise SerCParseError('Unknown type args. Args must be a list or a dictionary')
-    else:
-        # Types must be strings or type dictionaries
-        raise SerCParseError('Types must be strings or type dictionaries')
+        # Do some error checking
+        if not isinstance(node, dict):
+            raise SerCParseError('Structure definitions must be dictionaries')
+        if 'type_name' not in node or not isinstance(node['type_name'], str):
+            raise SerCParseError('Structure definitions must have a type_name')
+        if 'contents' not in node or not isinstance(node['contents'], list):
+            raise SerCParseError('Structures must have a contents list, even if there are no members')
 
-    # Return the SerCType speced in typeNode
-    return memberType
+        self.typeName = node['type_name']
+        self._members = []
+        self.typedefName = None
+
+        for member in node['contents']:
+            self._members.append(self.parseMember(member))
+
+        if 'typedef_name' in node:
+            if not isinstance(node['typedef_name'], str):
+                raise SerCParseError('Structure typedef names must be strings')
+            self.typedefName = node['type_name']
+
+    def formatTypedef(self):
+        print('typedef struct {0} {1};'.format(self.typeName, self.typedefName))
+
+    def formatPrototype(self):
+        print('struct {0};'.format(self.typeName))
+
+    def formatDeclaration(self):
+        print('struct {0} {{'.format(self.typeName))
+        for member in self._members:
+            member.formatDeclaration()
+        print('}__attribute__((packed));')
+
+        if self.typedefName:
+            self.formatTypedef()
+
+    def formatConstructor(self):
+        print('int {0}_create(struct {0}** new) {{'.format(self.typeName))
+        print('    *new = malloc(sizeof(struct {0}));'.format(self.typeName))
+        print('    struct {0}* this = *new;'.format(self.typeName))
+        for member in self._members:
+            member.formatConstructor()
+        print('    return 0;')
+        print('}')
+
+    def parseMember(self, node):
+        """ Parse a given member variable of a struct in parsed JSON """
+        if 'type' not in node:
+            raise SerCParseError('All member variables must have a type')
+
+        # Parse the type, then parse the full node into a member
+        memberType = SerCType.parseTypeNode(node['type'])
+        memberType.parse(node)
+        return memberType
+
 
 class JsonToCSerializer(object):
     """
@@ -177,33 +279,26 @@ class JsonToCSerializer(object):
         # Get out the list of structures and parse each one in turn
         if 'struct_list' not in self._parsedJson or not isinstance(self._parsedJson['struct_list'], list):
             raise SerCParseError('Must must have a structure list')
+        
+        # Parse each structure in order
+        for structNode in self._parsedJson['struct_list']:
+            newStruct = SerCStructure(structNode)
+            self._structures[newStruct.typeName] = newStruct
 
-        # Parse each structure in turn
-        for struct in self._parsedJson['struct_list']:
-            print(('struct {0};'.format(struct['type_name'])))
+        # Print out structure prototypes
+        for structName in self._structures:
+            self._structures[structName].formatPrototype()
         print()
-        for struct in self._parsedJson['struct_list']:
-            self.parseStruct(struct)
-            print()
+
+        # Print out their definitions
+        for structName in self._structures:
+            self._structures[structName].formatDeclaration()
         print()
 
-    def parseMember(self, node):
-        """ Parse a given member variable of a struct in parsed JSON """
-        if 'type' not in node:
-            raise SerCParseError('All member variables must have a type')
-
-        # Parse the type, then parse the full node into a member
-        memberType = parseMemberType(node['type'])
-        memberType.parse(node)
-
-    def parseStruct(self, node):
-        print(('struct {0} {{'.format(node['type_name'])))
-        for elem in node['contents']:
-            self.parseMember(elem)
-        print('}__attribute__((packed));')
-        if 'typedef_name' in node:
-            print(('typedef struct {0} {1};'.format(node['type_name'], node['typedef_name'])))
-
+        # Print out their constructors
+        for structName in self._structures:
+            self._structures[structName].formatConstructor()
+        print()
 
 serc = JsonToCSerializer(open('test.json'))
 serc.parse()

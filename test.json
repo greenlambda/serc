@@ -8,11 +8,8 @@
                 { "name": "rxCount", "type": {"type_name": "int", "args": ["unsigned", 8]}, "inline_comment": "Number of receiver units" },
 
                 { 
-                    "name": "rxSignalDuration", "type":
-                    {
-                        "type_name": "malloc_list",
-                        "args": [{"type_name": "float", "args": ["double"]}, "this->rxCount"]
-                    },
+                    "name": "rxSignalDuration", "type": {"type_name": "malloc_list", "args": [{"type_name": "float", "args": ["double"]}]},
+                    "list_length": "this->rxCount",
                     "inline_comment": "The duration the received signals in seconds"
                 },
 
