@@ -61,6 +61,9 @@ class SerCType(metaclass=ABCMeta):
     @abstractmethod
     def formatConstructor(self): pass
 
+    @abstractmethod
+    def getLength(self): pass
+
     def parse(self, node):
         self.longComment = None
         self.inlineComment = None
@@ -130,6 +133,9 @@ class SerCTypeInt(SerCType):
                 prefix = 'u'
             return '{0}int{1}_t'.format(prefix, self._width)
 
+    def getLength(self):
+        return 'sizeof({0})'.format(self.getCType())
+
     def formatConstructor(self):
         print('    this->{0} = 0;'.format(self.name))
 
@@ -148,6 +154,9 @@ class SerCTypeFloat(SerCType):
     def getCType(self):
         return self._width
 
+    def getLength(self):
+        return 'sizeof({0})'.format(self.getCType())
+
     def formatConstructor(self):
         print('    this->{0} = 0f;'.format(self.name))
 
@@ -156,13 +165,15 @@ class SerCTypeMallocList(SerCType):
     """
     This class defines all C lists where the lists are malloced.
     """
-    def __init__(self, elementTypeNode='int', length='0'):
+    def __init__(self, elementTypeNode='int'):
         super().__init__()
         self._elementType = SerCType.parseTypeNode(elementTypeNode)
-        self._length = length;
 
     def getCType(self):
         return '{0}*'.format(self._elementType.getCType())
+
+    def getLength(self):
+        return '({0} * {1})'.format(self._elementType.getLength(), self.listLength)
 
     def parse(self, node):
         super().parse(node)
@@ -186,6 +197,9 @@ class SerCTypeStructureStub(SerCType):
 
     def getCType(self):
         return 'struct {0}'.format(self._structTypeName)
+
+    def getLength(self):
+        return 'sizeof({0})'.format(self.getCType())
 
     def formatConstructor(self):
         print('    {1}_create(&(this->{0}));'.format(self.name, self._structTypeName))
@@ -247,6 +261,16 @@ class SerCStructure(object):
         print('    return 0;')
         print('}')
 
+    def formatSerializer(self):
+        print('int {0}_serialize(uint8_t* buffer, int max_length, struct {0}* this) {{'.format(self.typeName))
+        print('    size_t offset = 0;')
+        for member in self._members:
+            print('    memcpy(&(this->{0}), &(buffer[offset]), {1});'.format(member.name, member.getLength()))
+            print('    offset += {0};'.format(member.getLength()))
+            print()
+        print('    return 0;')
+        print('}')
+
     def parseMember(self, node):
         """ Parse a given member variable of a struct in parsed JSON """
         if 'type' not in node:
@@ -298,6 +322,11 @@ class JsonToCSerializer(object):
         # Print out their constructors
         for structName in self._structures:
             self._structures[structName].formatConstructor()
+        print()
+
+        # Print out their constructors
+        for structName in self._structures:
+            self._structures[structName].formatSerializer()
         print()
 
 serc = JsonToCSerializer(open('test.json'))
