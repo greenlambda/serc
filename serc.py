@@ -1,4 +1,4 @@
-import json
+import json, argparse
 from abc import ABCMeta, abstractmethod
 
 
@@ -56,15 +56,22 @@ class SerCType(metaclass=ABCMeta):
         return memberType
 
     @abstractmethod
-    def getCType(self): pass
+    def formatCType(self): pass
 
     @abstractmethod
     def formatConstructor(self): pass
 
     @abstractmethod
-    def getLength(self): pass
+    def formatSize(self): pass
+
+    @abstractmethod
+    def formatArgument(self): pass
 
     def parse(self, node):
+        """
+        The parent default parse command that parses basic things common
+        to all member variables like names and comments.
+        """
         self.longComment = None
         self.inlineComment = None
         if 'long_comment' in node:
@@ -85,7 +92,7 @@ class SerCType(metaclass=ABCMeta):
     def formatDeclaration(self):
         if self.longComment:
            print('    /*\n     * {0}\n     */'.format(self.longComment))
-        line = '    {0} {1};'.format(self.getCType(), self.name)
+        line = '    {0} {1};'.format(self.formatCType(), self.name)
         if self.inlineComment:
             line += ' /* {0} */'.format(self.inlineComment)
         print(line)
@@ -111,7 +118,20 @@ class SerCTypeInt(SerCType):
             raise SerCTypeArgsError('Integers must be of one of the widths: ' + str(self.VALID_WIDTHS))
         self._width = width
 
-    def getCType(self):
+    def parse(self, node):
+        super().parse(node)
+        self._initialArgument = (self.formatCType() + ' ' + self.name)
+        if 'constructor_value' in node:
+            if not isinstance(node['constructor_value'], dict):
+                raise SerCParseError('Constructor values must be dictionaries')
+            if 'type' not in node['constructor_value']:
+                raise SerCParseError('Constructor values must have a type field')
+            if node['constructor_value']['type'] == 'argument':
+                self._initialArgument = (self.formatCType() + ' ' + self.name)
+            elif node['constructor_value']['type'] == 'constant':
+                self._initialArgument = None
+
+    def formatCType(self):
         if self._width == 'system':
             if self._isSigned:
                 return 'int'
@@ -133,11 +153,17 @@ class SerCTypeInt(SerCType):
                 prefix = 'u'
             return '{0}int{1}_t'.format(prefix, self._width)
 
-    def getLength(self):
-        return 'sizeof({0})'.format(self.getCType())
+    def formatArgument(self):
+        return self._initialArgument
+
+    def formatSize(self):
+        return 'sizeof({0})'.format(self.formatCType())
 
     def formatConstructor(self):
-        print('    this->{0} = 0;'.format(self.name))
+        if self._initialArgument:
+            print('    this->{0} = {1};'.format(self.name, self.name))
+        else:
+            print('    this->{0} = 0;'.format(self.name))
 
 class SerCTypeFloat(SerCType):
     """
@@ -146,20 +172,27 @@ class SerCTypeFloat(SerCType):
     VALID_WIDTHS = ['float', 'double']
 
     def __init__(self, width='float'):
-        super(SerCTypeFloat, self).__init__()
+        super().__init__()
         if width not in self.VALID_WIDTHS:
             raise SerCTypeArgsError('Floating point numbers must be one of the widths: ' + self.VALID_WIDTHS)
         self._width = width
 
-    def getCType(self):
+    def formatCType(self):
         return self._width
 
-    def getLength(self):
-        return 'sizeof({0})'.format(self.getCType())
+    def formatArgument(self):
+        return (self.formatCType() + ' ' + self.name)
+
+    def formatSize(self):
+        return 'sizeof({0})'.format(self.formatCType())
 
     def formatConstructor(self):
         print('    this->{0} = 0f;'.format(self.name))
 
+class SerCTypeDouble(SerCTypeFloat):
+    """A convinience class that is just the float type with the width bound to dobule"""
+    def __init__(self):
+        super().__init__(width='double')
     
 class SerCTypeMallocList(SerCType):
     """
@@ -169,12 +202,6 @@ class SerCTypeMallocList(SerCType):
         super().__init__()
         self._elementType = SerCType.parseTypeNode(elementTypeNode)
 
-    def getCType(self):
-        return '{0}*'.format(self._elementType.getCType())
-
-    def getLength(self):
-        return '({0} * {1})'.format(self._elementType.getLength(), self.listLength)
-
     def parse(self, node):
         super().parse(node)
         if 'list_length' not in node:
@@ -182,8 +209,20 @@ class SerCTypeMallocList(SerCType):
 
         self.listLength = node['list_length']
 
+    def formatCType(self):
+        return '{0}*'.format(self._elementType.formatCType())
+
+    def formatArgument(self):
+        return None
+
+    def formatSize(self):
+        return '({0} * {1})'.format(self._elementType.formatSize(), self.listLength)
+
     def formatConstructor(self):
-        print('    this->{0} = malloc(sizeof({1}) * {2});'.format(self.name, self._elementType.getCType(), self.listLength))
+        print('    this->{0} = malloc(sizeof({1}) * {2});'.format(self.name, self._elementType.formatCType(), self.listLength))
+        print('    if (this->{0} == NULL) {{'.format(self.name))
+        print('        return -1;')
+        print('    }')
 
 
 class SerCTypeStructureStub(SerCType):
@@ -195,11 +234,14 @@ class SerCTypeStructureStub(SerCType):
         super(SerCTypeStructureStub, self).__init__()
         self._structTypeName = structTypeName
 
-    def getCType(self):
+    def formatCType(self):
         return 'struct {0}'.format(self._structTypeName)
 
-    def getLength(self):
-        return 'sizeof({0})'.format(self.getCType())
+    def formatArgument(self):
+        return None
+
+    def formatSize(self):
+        return 'sizeof({0})'.format(self.formatCType())
 
     def formatConstructor(self):
         print('    {1}_create(&(this->{0}));'.format(self.name, self._structTypeName))
@@ -208,7 +250,8 @@ TYPE_TABLE = {
     'int': SerCTypeInt,
     'malloc_list': SerCTypeMallocList,
     'struct': SerCTypeStructureStub,
-    'float': SerCTypeFloat
+    'float': SerCTypeFloat,
+    'double': SerCTypeDouble
 }
 
 class SerCStructure(object):
@@ -235,7 +278,7 @@ class SerCStructure(object):
         if 'typedef_name' in node:
             if not isinstance(node['typedef_name'], str):
                 raise SerCParseError('Structure typedef names must be strings')
-            self.typedefName = node['type_name']
+            self.typedefName = node['typedef_name']
 
     def formatTypedef(self):
         print('typedef struct {0} {1};'.format(self.typeName, self.typedefName))
@@ -252,10 +295,15 @@ class SerCStructure(object):
         if self.typedefName:
             self.formatTypedef()
 
+    def formatSize(self):
+        print('size_t {0}_size(struct {0}* this) {{'.format(self.typeName))
+        print('    return ({0});'.format(' + '.join(member.formatSize() for member in self._members)))
+        print('}')
+
     def formatConstructor(self):
-        print('int {0}_create(struct {0}** new) {{'.format(self.typeName))
-        print('    *new = malloc(sizeof(struct {0}));'.format(self.typeName))
-        print('    struct {0}* this = *new;'.format(self.typeName))
+        extraArgs = [member.formatArgument() for member in self._members if member.formatArgument() is not None]
+        arguments = ['struct {0}* this'.format(self.typeName)] + extraArgs
+        print('int {0}_construct({1}) {{'.format(self.typeName, ', '.join(arguments)))
         for member in self._members:
             member.formatConstructor()
         print('    return 0;')
@@ -265,8 +313,8 @@ class SerCStructure(object):
         print('int {0}_serialize(uint8_t* buffer, int max_length, struct {0}* this) {{'.format(self.typeName))
         print('    size_t offset = 0;')
         for member in self._members:
-            print('    memcpy(&(this->{0}), &(buffer[offset]), {1});'.format(member.name, member.getLength()))
-            print('    offset += {0};'.format(member.getLength()))
+            print('    memcpy(&(this->{0}), &(buffer[offset]), {1});'.format(member.name, member.formatSize()))
+            print('    offset += {0};'.format(member.formatSize()))
             print()
         print('    return 0;')
         print('}')
@@ -317,6 +365,13 @@ class JsonToCSerializer(object):
         # Print out their definitions
         for structName in self._structures:
             self._structures[structName].formatDeclaration()
+            print()
+        print()
+
+        # Print out their length functions
+        for structName in self._structures:
+            self._structures[structName].formatSize()
+            print()
         print()
 
         # Print out their constructors
@@ -324,11 +379,20 @@ class JsonToCSerializer(object):
             self._structures[structName].formatConstructor()
         print()
 
-        # Print out their constructors
+        # Print out their serializers
         for structName in self._structures:
             self._structures[structName].formatSerializer()
         print()
 
-serc = JsonToCSerializer(open('test.json'))
-serc.parse()
+
+parser = argparse.ArgumentParser()
+parser.add_argument('specfile', type=argparse.FileType('r'))
+
+if __name__ == '__main__':
+    args = parser.parse_args()
+    if args.specfile is not None:
+        serc = JsonToCSerializer(args.specfile)
+        serc.parse()
+
+
 
