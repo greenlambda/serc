@@ -18,8 +18,7 @@
                     "inline_comment": "The duration the received signals in seconds"
                 },
 
-                { "name": "rx", "type": {"type_name": "struct", "args": ["point"]}, "inline_comment": "The location of the receiver" },
-                { "name": "testDouble", "type": "double", "inline_comment": "A simple test double" }
+                { "name": "testDouble", "type": "double" }
             ]
         },
         { 
