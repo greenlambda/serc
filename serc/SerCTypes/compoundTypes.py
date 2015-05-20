@@ -1,21 +1,21 @@
 from serc.SerCTypeBase import SerCType
 from serc.SerCExceptions import SerCTypeArgsError, SerCParseError
 
-class SerCTypeMallocList(SerCType):
+class SerCTypeVector(SerCType):
     """
-    This class defines all C lists where the lists are malloced.
+    This class defines all C array lists where the lists are malloced. Like C++ vector
     """
     def __init__(self, elementTypeNode='int'):
         super().__init__()
         self._elementType = SerCType.parseTypeNode(elementTypeNode)
 
     def getTypeID():
-        return 'malloc_list'
+        return 'vector'
 
     def parse(self, node):
         super().parse(node)
         if 'list_length' not in node:
-            raise SerCParseError('Malloc lists must have a length')
+            raise SerCParseError('Vectors must have a length')
 
         self.listLength = node['list_length']
 

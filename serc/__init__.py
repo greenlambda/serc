@@ -9,7 +9,7 @@ class SerCStructure(object):
     """This holds all the data about a structure once it has been parsed"""
     def __init__(self, node):
         """Parse a JSON node into a new object of the SerCStructure class"""
-        super(SerCStructure, self).__init__()
+        super().__init__()
 
         # Do some error checking
         if not isinstance(node, dict):
@@ -89,7 +89,7 @@ class JsonToCSerializer(object):
     constructor/destructor for.
     """
     def __init__(self, fd):
-        super(JsonToCSerializer, self).__init__()
+        super().__init__()
         self._fd = fd
         self._structures = {}
         self._parsedJson = None

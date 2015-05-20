@@ -13,7 +13,7 @@
                 },
 
                 { 
-                    "name": "rxSignalDuration", "type": {"type_name": "malloc_list", "args": ["double"]},
+                    "name": "rxSignalDuration", "type": {"type_name": "vector", "args": ["double"]},
                     "list_length": "this->rxCount",
                     "inline_comment": "The duration the received signals in seconds"
                 },
@@ -42,33 +42,34 @@
                 { "name": "numberOfFrames", "type": {"type_name": "int", "args": ["unsigned", 32]}, "inline_comment": "The number of frames in this radar data structure"},
 
                 { 
-                    "name": "txIds", "type": {"type_name": "malloc_list", "args": [{"type_name": "int", "args": ["unsigned", 8]}]},
+                    "name": "txIds", "type": {"type_name": "vector", "args": [{"type_name": "int", "args": ["unsigned", 8]}]},
                     "list_length": "this->txFireEventCount",
                     "inline_comment": "The IDs of the tx unit for each element in the txFireTimesInSeconds array"
                 },
                 { 
-                    "name": "txFrameLengths", "type": {"type_name": "malloc_list", "args": [{"type_name": "int", "args": ["unsigned", 8]}]},
+                    "name": "txFrameLengths", "type": {"type_name": "vector", "args": [{"type_name": "int", "args": ["unsigned", 8]}]},
                     "list_length": "this->numberOfFrames",
                     "inline_comment": "The length of each frame. Note that sum(txFrameLengths) = txFireEventCount"
                 },
                 { 
-                    "name": "txFireTimesInSeconds", "type": {"type_name": "malloc_list", "args": ["double"]},
+                    "name": "txFireTimesInSeconds", "type": {"type_name": "vector", "args": ["double"]},
                     "list_length": "this->txFireEventCount",
                     "inline_comment": "The point in time that each transmitter fired"
                 },
 
                 { 
-                    "name": "rxIds", "type": {"type_name": "malloc_list", "args": [{"type_name": "int", "args": ["unsigned", 8]}]},
+                    "name": "rxIds", "type": {"type_name": "vector", "args": [{"type_name": "int", "args": ["unsigned", 8]}]},
                     "list_length": "this->rxReceiveEventCount",
                     "inline_comment": "The IDs of the rx unit for each element in the rxReceiveEventCount array"
                 },
                 { 
-                    "name": "rxFrameLengths", "type": {"type_name": "malloc_list", "args": [{"type_name": "int", "args": ["unsigned", 8]}]},
+
+                    "name": "rxFrameLengths", "type": {"type_name": "vector", "args": [{"type_name": "int", "args": ["unsigned", 8]}]},
                     "list_length": "this->numberOfFrames",
                     "inline_comment": "The length of each frame. Note that sum(rxFrameLengths) = rxReceiveEventCount"
                 },
                 { 
-                    "name": "rxFireTimesInSeconds", "type": {"type_name": "malloc_list", "args": ["double"]},
+                    "name": "rxFireTimesInSeconds", "type": {"type_name": "vector", "args": ["double"]},
                     "list_length": "this->rxReceiveEventCount",
                     "inline_comment": "The point in time that each receiver started taking data"
                 }
