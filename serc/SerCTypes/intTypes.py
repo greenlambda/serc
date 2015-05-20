@@ -25,6 +25,13 @@ class SerCTypeInt(SerCType):
     def getTypeID():
         return 'int'
 
+    def getRequiredHeaders(self):
+        """Return the set of required C headers for this type"""
+        if not isinstance(self._width, str):
+            return {'stdint.h'}
+        else:
+            return set()
+
     def parse(self, node):
         super().parse(node)
         self._initialArgument = (self.formatCType() + ' ' + self.name)
@@ -72,3 +79,11 @@ class SerCTypeInt(SerCType):
         else:
             print('    this->{0} = 0;'.format(self.name))
 
+class SerCTypeUint8(SerCTypeInt):
+    """A simple binding of the Int type for uint8_t"""
+    def __init__(self):
+        super().__init__(signedness='unsigned', width=8)
+
+    def getTypeID():
+        return "uint8_t"
+        

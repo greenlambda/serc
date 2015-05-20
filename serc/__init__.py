@@ -31,6 +31,17 @@ class SerCStructure(object):
                 raise SerCParseError('Structure typedef names must be strings')
             self.typedefName = node['typedef_name']
 
+    def getRequiredHeaders(self):
+        """
+        Get all the required headers for this structure, which is the
+        union of all the required headers for the members plus
+        string.h for memcpy.
+        """
+        requiredHeaders = {'string.h'}
+        for member in self._members:
+            requiredHeaders = requiredHeaders.union(member.getRequiredHeaders())
+        return requiredHeaders
+
     def formatTypedef(self):
         print('typedef struct {0} {1};'.format(self.typeName, self.typedefName))
 
@@ -50,6 +61,17 @@ class SerCStructure(object):
         print('size_t {0}_size(struct {0}* this) {{'.format(self.typeName))
         print('    return ({0});'.format(' + '.join(member.formatSize() for member in self._members)))
         print('}')
+
+    def formatAllocate(self):
+        allocStr = """ssize_t {0}_allocate(struct {0}** block) {{
+    *block = malloc(sizeof(struct {0}));
+    if (*block == NULL) {{
+        return -1;
+    }}
+    return sizeof(struct {0});
+}}
+""".format(self.typeName)
+        print(allocStr)
 
     def formatConstructor(self):
         extraArgs = [member.formatArgument() for member in self._members if member.formatArgument() is not None]
@@ -108,6 +130,14 @@ class JsonToCSerializer(object):
             newStruct = SerCStructure(structNode)
             self._structures[newStruct.typeName] = newStruct
 
+        # Format and print the required headers
+        requiredHeaders = set()
+        for structName in self._structures:
+            requiredHeaders = requiredHeaders.union(self._structures[structName].getRequiredHeaders())
+        for header in requiredHeaders:
+            print('#include <{0}>'.format(header))
+        print()
+
         # Print out structure prototypes
         for structName in self._structures:
             self._structures[structName].formatPrototype()
@@ -125,14 +155,22 @@ class JsonToCSerializer(object):
             print()
         print()
 
+        # Print out their allocators
+        for structName in self._structures:
+            self._structures[structName].formatAllocate()
+            print()
+        print()
+
         # Print out their constructors
         for structName in self._structures:
             self._structures[structName].formatConstructor()
+            print()
         print()
 
         # Print out their serializers
         for structName in self._structures:
             self._structures[structName].formatSerializer()
+            print()
         print()
 
 

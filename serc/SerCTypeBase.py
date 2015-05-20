@@ -64,6 +64,9 @@ class SerCType(metaclass=SerCTypeMeta):
         return memberType
 
     @abstractmethod
+    def getRequiredHeaders(self): pass
+
+    @abstractmethod
     def formatCType(self): pass
 
     @abstractmethod

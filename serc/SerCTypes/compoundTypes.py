@@ -12,6 +12,10 @@ class SerCTypeVector(SerCType):
     def getTypeID():
         return 'vector'
 
+    def getRequiredHeaders(self):
+        """Return the set of required C headers for this type"""
+        return {'stdlib.h'}
+
     def parse(self, node):
         super().parse(node)
         if 'list_length' not in node:
@@ -46,6 +50,10 @@ class SerCTypeStructureStub(SerCType):
 
     def getTypeID():
         return 'struct'
+
+    def getRequiredHeaders(self):
+        """Return the set of required C headers for this type"""
+        return set()
 
     def formatCType(self):
         return 'struct {0}'.format(self._structTypeName)

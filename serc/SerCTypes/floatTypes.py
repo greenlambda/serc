@@ -13,6 +13,10 @@ class SerCTypeFloat(SerCType):
             raise SerCTypeArgsError('Floating point numbers must be one of the widths: ' + self.VALID_WIDTHS)
         self._width = width
 
+    def getRequiredHeaders(self):
+        """Return the set of required C headers for this type"""
+        return set()
+
     def getTypeID():
         return 'float'
 
