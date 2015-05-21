@@ -1,9 +1,12 @@
-import json
+import json, itertools
 from serc.SerCExceptions import SerCTypeArgsError, SerCParseError
 from serc.SerCTypeBase import SerCType
 
 # Import all the types. This also registers all of the types
 import serc.SerCTypes
+
+def _formatArgument(arg):
+    return (arg[0] + ' ' + arg[1])
 
 class SerCStructure(object):
     """This holds all the data about a structure once it has been parsed"""
@@ -74,13 +77,31 @@ class SerCStructure(object):
         print(allocStr)
 
     def formatConstructor(self):
-        extraArgs = [member.formatArgument() for member in self._members if member.formatArgument() is not None]
-        arguments = ['struct {0}* this'.format(self.typeName)] + extraArgs
-        print('int {0}_construct({1}) {{'.format(self.typeName, ', '.join(arguments)))
+        args = itertools.chain([('struct {0}*'.format(self.typeName), 'this')], itertools.chain.from_iterable(member.getRequiredArguments() for member in self._members))
+        argsStr = map(_formatArgument, args)
+        print('int {0}_construct({1}) {{'.format(self.typeName, ', '.join(argsStr)))
         for member in self._members:
             member.formatConstructor()
         print('    return 0;')
         print('}')
+
+    def formatNew(self):
+        args = itertools.chain([('struct {0}*'.format(self.typeName), 'this')], itertools.chain.from_iterable(member.getRequiredArguments() for member in self._members))
+        argsStr = map(_formatArgument, args)
+        rawArgs = itertools.chain.from_iterable(member.getRequiredArguments() for member in self._members)
+        constructorArgsStr = map(lambda arg: arg[1], rawArgs)
+        newStr = """ssize_t {0}_new({1}) {{
+    ssize_t alloc_ret = {0}_allocate(this_ptr);
+    if (alloc_ret < 0) {{
+        return -1;
+    }}
+    if ({0}_construct(*this_ptr, {2}) < 0) {{
+        return -1;
+    }}
+    return alloc_ret;
+}}
+""".format(self.typeName, ', '.join(argsStr), ', '.join(constructorArgsStr))
+        print(newStr)
 
     def formatSerializer(self):
         print('int {0}_serialize(uint8_t* buffer, int max_length, struct {0}* this) {{'.format(self.typeName))
@@ -164,6 +185,12 @@ class JsonToCSerializer(object):
         # Print out their constructors
         for structName in self._structures:
             self._structures[structName].formatConstructor()
+            print()
+        print()
+
+        # Print out their new functions
+        for structName in self._structures:
+            self._structures[structName].formatNew()
             print()
         print()
 

@@ -8,7 +8,7 @@
                 { 
                     "name": "rxCount", 
                     "type": "uint8_t",
-                    "constructor_value": {"type": "argument"},
+                    "constructor_value": {"type": "constant", "value": "12"},
                     "inline_comment": "Number of receiver units"
                 },
 

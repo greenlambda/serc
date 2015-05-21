@@ -1,4 +1,4 @@
-from serc.SerCTypeBase import SerCType
+from serc.SerCTypeBase import SerCType, SerCMemberInitialValue
 from serc.SerCExceptions import SerCTypeArgsError, SerCParseError
 
 class SerCTypeFloat(SerCType):
@@ -17,20 +17,27 @@ class SerCTypeFloat(SerCType):
         """Return the set of required C headers for this type"""
         return set()
 
+    def getRequiredArguments(self):
+        """
+        Returns a list of required arguments for this type. Each
+        argument is a tuple of the typestring and the name
+        """
+        if self._initValue.needsArgument:
+            return [self._initValue.getArgument()]
+        else:
+            return []
+
     def getTypeID():
         return 'float'
 
     def formatCType(self):
         return self._width
 
-    def formatArgument(self):
-        return (self.formatCType() + ' ' + self.name)
-
     def formatSize(self):
         return 'sizeof({0})'.format(self.formatCType())
 
     def formatConstructor(self):
-        print('    this->{0} = 0.0f;'.format(self.name))
+        print('    this->{0} = {1};'.format(self.name, self._initValue.initStr))
 
 class SerCTypeDouble(SerCTypeFloat):
     """A convinience class that is just the float type with the width bound to dobule"""

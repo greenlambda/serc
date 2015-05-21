@@ -22,6 +22,40 @@ class SerCTypeMeta(ABCMeta):
             
         super().__init__(name, bases, dct)
 
+class SerCMemberInitialValue(object):
+    """Parses initial values of types and holds information about them"""
+    def __init__(self, initStr, needsArgument, argumentType=None, argumentName=None):
+        """Store things"""
+        self.initStr = initStr
+        self.needsArgument = needsArgument
+        if self.needsArgument:
+            self._argumentType = argumentType
+            self._argumentName = argumentName
+
+    def parseInitialValue(node, argumentType, argumentName):
+        """Creates a new initial value out of a member node"""
+        if 'init_value' in node:
+            if not isinstance(node['init_value'], dict):
+                raise SerCParseError('Initial values must be dictionaries')
+            if 'type' not in node['init_value']:
+                raise SerCParseError('Initial values must have a type field')
+
+            if node['init_value']['type'].lower() == 'argument':
+                return SerCMemberInitialValue(argumentName, True, argumentType, argumentName)
+            elif node['init_value']['type'].lower() == 'constant':
+                if 'value' not in node['init_value'] or not isinstance(node['init_value']['value'], str):
+                    raise SerCParseError('Constant initial values must have a string value field')
+                return SerCMemberInitialValue(node['init_value']['value'], False)
+        else:
+            # Default to argument based initial values
+            return SerCMemberInitialValue(argumentName, True, argumentType, argumentName)
+
+    def getArgument(self):
+        if self.needsArgument:
+            return (self._argumentType, self._argumentName)
+        else:
+            return None
+
 class SerCType(metaclass=SerCTypeMeta):
     """
     The base class for all SerC types.
@@ -67,6 +101,9 @@ class SerCType(metaclass=SerCTypeMeta):
     def getRequiredHeaders(self): pass
 
     @abstractmethod
+    def getRequiredArguments(self): pass
+
+    @abstractmethod
     def formatCType(self): pass
 
     @abstractmethod
@@ -74,9 +111,6 @@ class SerCType(metaclass=SerCTypeMeta):
 
     @abstractmethod
     def formatSize(self): pass
-
-    @abstractmethod
-    def formatArgument(self): pass
 
     def parse(self, node):
         """
@@ -99,6 +133,8 @@ class SerCType(metaclass=SerCTypeMeta):
             if not isinstance(node['inline_comment'], str):
                 raise SerCParseError('inline_comment must be strings')
             self.inlineComment = node['inline_comment']
+
+        self._initValue = SerCMemberInitialValue.parseInitialValue(node, self.formatCType(), self.name)
 
     def formatDeclaration(self):
         if self.longComment:

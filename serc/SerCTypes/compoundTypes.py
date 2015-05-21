@@ -16,6 +16,16 @@ class SerCTypeVector(SerCType):
         """Return the set of required C headers for this type"""
         return {'stdlib.h'}
 
+    def getRequiredArguments(self):
+        """
+        Returns a list of required arguments for this type. Each
+        argument is a tuple of the typestring and the name
+        """
+        if self._initValue.needsArgument:
+            return [self._initValue.getArgument()]
+        else:
+            return []
+
     def parse(self, node):
         super().parse(node)
         if 'list_length' not in node:
@@ -25,9 +35,6 @@ class SerCTypeVector(SerCType):
 
     def formatCType(self):
         return '{0}*'.format(self._elementType.formatCType())
-
-    def formatArgument(self):
-        return None
 
     def formatSize(self):
         return '({0} * {1})'.format(self._elementType.formatSize(), self.listLength)
@@ -55,11 +62,18 @@ class SerCTypeStructureStub(SerCType):
         """Return the set of required C headers for this type"""
         return set()
 
+    def getRequiredArguments(self):
+        """
+        Returns a list of required arguments for this type. Each
+        argument is a tuple of the typestring and the name
+        """
+        if self._initValue.needsArgument:
+            return [self._initValue.getArgument()]
+        else:
+            return []
+
     def formatCType(self):
         return 'struct {0}'.format(self._structTypeName)
-
-    def formatArgument(self):
-        return None
 
     def formatSize(self):
         return 'sizeof({0})'.format(self.formatCType())

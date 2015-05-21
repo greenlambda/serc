@@ -1,4 +1,4 @@
-from serc.SerCTypeBase import SerCType
+from serc.SerCTypeBase import SerCType, SerCMemberInitialValue
 from serc.SerCExceptions import SerCTypeArgsError, SerCParseError
 
 class SerCTypeInt(SerCType):
@@ -32,18 +32,15 @@ class SerCTypeInt(SerCType):
         else:
             return set()
 
-    def parse(self, node):
-        super().parse(node)
-        self._initialArgument = (self.formatCType() + ' ' + self.name)
-        if 'constructor_value' in node:
-            if not isinstance(node['constructor_value'], dict):
-                raise SerCParseError('Constructor values must be dictionaries')
-            if 'type' not in node['constructor_value']:
-                raise SerCParseError('Constructor values must have a type field')
-            if node['constructor_value']['type'] == 'argument':
-                self._initialArgument = (self.formatCType() + ' ' + self.name)
-            elif node['constructor_value']['type'] == 'constant':
-                self._initialArgument = None
+    def getRequiredArguments(self):
+        """
+        Returns a list of required arguments for this type. Each
+        argument is a tuple of the typestring and the name
+        """
+        if self._initValue.needsArgument:
+            return [self._initValue.getArgument()]
+        else:
+            return []
 
     def formatCType(self):
         if self._width == 'system':
@@ -67,17 +64,11 @@ class SerCTypeInt(SerCType):
                 prefix = 'u'
             return '{0}int{1}_t'.format(prefix, self._width)
 
-    def formatArgument(self):
-        return self._initialArgument
-
     def formatSize(self):
         return 'sizeof({0})'.format(self.formatCType())
 
     def formatConstructor(self):
-        if self._initialArgument:
-            print('    this->{0} = {1};'.format(self.name, self.name))
-        else:
-            print('    this->{0} = 0;'.format(self.name))
+        print('    this->{0} = {1};'.format(self.name, self._initValue.initStr))
 
 class SerCTypeUint8(SerCTypeInt):
     """A simple binding of the Int type for uint8_t"""
